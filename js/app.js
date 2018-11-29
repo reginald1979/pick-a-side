@@ -5,7 +5,32 @@ myApp.controller('PollController', function PollController($scope,$http,$interva
 	$scope.pollStarted = false;
 	$scope.pollEnded = false;
 	$scope.pollId = 0;
-	
+	var stop;
+	$scope.getOpenPoll = function() {
+		$http.get('http://pick-a-side-poll.000webhostapp.com/api/poll/get_open_poll.php')
+				.then(function (response) {
+					// check if there is an open poll, if so load that
+					if(!response.data.stop_date) {
+						$scope.pollName = "Running poll: " + response.data.description;
+						$scope.pollStarted = true;
+						$scope.pollId = response.data.id;
+						
+						// also preset timer
+						$scope.stringMins = "00";
+						$scope.stringSecs = "00";
+						$scope.seconds = 0;
+						$scope.minutes = 0;
+						stop = $interval( function(){ $scope.incrementTimer(); }, 1000);
+					}
+				})
+				.catch(function (response) {
+					$scope.ResponseDetails = "Data: " + response.data +
+						"<hr />status: " + response.status +
+						"<hr />headers: " + response.header +
+						"<hr />config: " + response.config; 
+				});	
+	};
+	$scope.getOpenPoll();
 	$scope.showStartButton = function() {
 		if($scope.pollEnded) {
 			return false;
@@ -54,8 +79,7 @@ myApp.controller('PollController', function PollController($scope,$http,$interva
 		$scope.stringSecs = "00" + $scope.seconds.toString();	
 		$scope.stringSecs = $scope.stringSecs.slice(-2);
 		
-	}
-	var stop;
+	};
 	$scope.createPoll = function() {
 	
 		if(!$scope.description) {
@@ -76,7 +100,7 @@ myApp.controller('PollController', function PollController($scope,$http,$interva
                 }
             }
 		
-		$http.post('http://localhost/pick-a-side/api/poll/create.php', JSON.stringify(data), config)
+		$http.post('http://pick-a-side-poll.000webhostapp.com/api/poll/create.php', JSON.stringify(data), config)
             .then(function (response) {
 				$scope.pollName = "Running poll: " + $scope.description;
 				$scope.pollStarted = true;
@@ -106,12 +130,12 @@ myApp.controller('PollController', function PollController($scope,$http,$interva
                 }
             }
 		
-		$http.post('http://localhost/pick-a-side/api/poll/stop_poll.php', JSON.stringify(data), config)
+		$http.post('http://pick-a-side-poll.000webhostapp.com/api/poll/stop_poll.php', JSON.stringify(data), config)
             .then(function (response) {
 				$scope.pollStarted = false;
 				$scope.pollEnded = true;
 				
-				$http.get('http://localhost/pick-a-side/api/poll/read_one.php?id=' + $scope.pollId)
+				$http.get('http://pick-a-side-poll.000webhostapp.com/api/poll/read_one.php?id=' + $scope.pollId)
 				.then(function (response) {
 					$scope.pollStarted = false;
 					$scope.pollEnded = true;
@@ -173,26 +197,17 @@ myApp.controller('VoteController', function VoteController($scope,$http,$interva
 	
 	
 	$scope.pollClosed = false;
-	$scope.getIp = function() {
-		$http.get('https://api.ipify.org?format=json')
-			.then(function(response) {
-				$scope.ip = response.data.ip;
-				//$scope.loadResults();
-			})
-			.catch(function(response) {
-				alert("Could not get ip address");
-			});
-	};
-	$scope.getIp();
-	
-	
-	
+	$scope.votingDisabled = false;
 	$scope.loadResults = function() {
-		$http.get('http://localhost/pick-a-side/api/poll/get_open_poll.php')
+		$http.get('http://pick-a-side-poll.000webhostapp.com/api/poll/get_open_poll.php')
 				.then(function (response) {
 					if(!$scope.pollHeader)
 					{
-						$scope.pollHeader = "Cast your vote for " + response.data.description;
+						var promptText = "Cast your vote for ";
+						if($scope.votingDisabled) {
+							promptText = "You have already voted on poll "
+						}
+						$scope.pollHeader = promptText + response.data.description;
 						$scope.pollId = response.data.id;
 					}
 					if(response.data.stop_date) {
@@ -232,6 +247,56 @@ myApp.controller('VoteController', function VoteController($scope,$http,$interva
 				});	
 	}
 	
+	$scope.canVote = function() {
+		$http.get('http://pick-a-side-poll.000webhostapp.com/api/poll/get_open_poll.php')
+				.then(function (response) {
+					$scope.pollHeader = "Cast your vote for " + response.data.description;
+					$scope.pollId = response.data.id;
+					var data = {};
+					data.poll_id = $scope.pollId;
+					data.ip = $scope.ip;
+					var headerText = response.data.description;
+					var config = {
+							headers : {
+								'Content-Type': 'application/json;'
+							}
+						}
+					$http.post('http://pick-a-side-poll.000webhostapp.com/api/vote/can_vote.php', JSON.stringify(data), config)
+					.then(function(response) {
+						//alert(response.data.can_vote);
+						if(response.data.can_vote == "false") {
+							$scope.pollHeader = "You have already voted on poll " + headerText;
+							$scope.votingDisabled = true;
+						}
+						
+					})
+					.catch(function(response) {
+						$scope.ResponseDetails = "Data: " + response.data +
+						"<hr />status: " + response.status +
+						"<hr />headers: " + response.header +
+						"<hr />config: " + response.config; 
+					}); 
+				})
+				.catch(function (response) {
+					$scope.ResponseDetails = "Data: " + response.data +
+						"<hr />status: " + response.status +
+						"<hr />headers: " + response.header +
+						"<hr />config: " + response.config; 
+				});	
+	};
+	
+	$scope.getIp = function() {
+		$http.get('https://api.ipify.org?format=json')
+			.then(function(response) {
+				$scope.ip = response.data.ip;
+				$scope.canVote();
+			})
+			.catch(function(response) {
+				alert("Could not get ip address");
+			});
+	};
+	$scope.getIp();
+	
 	var stop;
 	stop = $interval( function(){ $scope.loadResults(); }, 1000);
 	
@@ -248,9 +313,10 @@ myApp.controller('VoteController', function VoteController($scope,$http,$interva
                 }
             }
 			
-		$http.post('http://localhost/pick-a-side/api/vote/cast_vote.php', JSON.stringify(data), config)
+		$http.post('http://pick-a-side-poll.000webhostapp.com/api/vote/cast_vote.php', JSON.stringify(data), config)
             .then(function (response) {
 				alert(response.data.message);
+				$scope.votingDisabled = true;
             })
             .catch(function (response) {
                 $scope.ResponseDetails = "Data: " + response.data +
@@ -273,9 +339,10 @@ myApp.controller('VoteController', function VoteController($scope,$http,$interva
                 }
             }
 			
-		$http.post('http://localhost/pick-a-side/api/vote/cast_vote.php', JSON.stringify(data), config)
+		$http.post('http://pick-a-side-poll.000webhostapp.com/api/vote/cast_vote.php', JSON.stringify(data), config)
             .then(function (response) {
 				alert(response.data.message);
+				$scope.votingDisabled = true;
             })
             .catch(function (response) {
                 $scope.ResponseDetails = "Data: " + response.data +

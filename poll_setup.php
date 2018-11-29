@@ -1,3 +1,13 @@
+<?php
+	session_start();
+	if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true) {
+		//echo "Welcome to the member's area, " . $_SESSION['username'] . "!";
+	} else {
+		//echo "Please log in first to see this page.";
+		header("Location: admin.php");
+	}
+
+?>
 <html ng-app="myApp">
 <head>
 <title>
@@ -10,7 +20,7 @@
 </head>
 <body ng-controller="PollController">
 	<div style="width:100%;">
-		<img src="images/logo.webp" style="display:block; margin: 0 auto; width:18%" />
+		<img src="images/logo.png" style="display:block; margin: 0 auto; width:18%" />
 	</div>
 	<div style="width:100%;">
 
