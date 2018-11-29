@@ -144,7 +144,7 @@ myApp.controller('PollController', function PollController($scope,$http,$interva
 						var myChart = new Chart(ctx, {
 							type: 'pie',
 							data: {
-								labels: ["Debater A", "Debater B"],
+								labels: ["(A)", "(B)"],
 								datasets: [{
 									label: '# of Votes',
 									data: [response.data.total_a, response.data.total_b],
@@ -220,7 +220,7 @@ myApp.controller('VoteController', function VoteController($scope,$http,$interva
 						var myChart = new Chart(ctx, {
 							type: 'pie',
 							data: {
-								labels: ["Debater A", "Debater B"],
+								labels: ["(A)", "(B)"],
 								datasets: [{
 									label: '# of Votes',
 									data: [response.data.total_a, response.data.total_b],
